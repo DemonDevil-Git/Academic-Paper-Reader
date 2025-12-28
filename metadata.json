@@ -1,0 +1,5 @@
+{
+  "name": "LinguistRead - Smart Bilingual Literature Reader",
+  "description": "An advanced English literature reader that provides side-by-side translation, sentence-level highlighting, and persistent reading progress using Gemini 3 Flash.",
+  "requestFramePermissions": []
+}
