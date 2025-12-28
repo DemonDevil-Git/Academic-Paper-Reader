@@ -15,8 +15,16 @@ const App: React.FC = () => {
     view: 'upload'
   });
 
+  // 状态：控制自定义删除确认弹窗
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; targetId: string | null; targetName: string | null }>({
+    isOpen: false,
+    targetId: null,
+    targetName: null
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 初始化历史记录
   useEffect(() => {
     const savedHistory = localStorage.getItem('linguist_history');
     if (savedHistory) {
@@ -29,6 +37,7 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // 持久化历史记录
   useEffect(() => {
     localStorage.setItem('linguist_history', JSON.stringify(state.history));
   }, [state.history]);
@@ -58,16 +67,37 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const handleDeleteHistory = (e: React.MouseEvent, id: string) => {
+  // 请求删除：打开自定义弹窗，不再调用 window.confirm
+  const handleDeleteHistoryRequest = (e: React.MouseEvent, item: FileHistoryItem) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(`确定要删除记录“${id}”吗？`)) return;
-    
-    setState(prev => {
-      const filteredHistory = prev.history.filter(h => h.id !== id && h.name !== id);
-      localStorage.removeItem(`trans_cache_${id}`);
-      return { ...prev, history: filteredHistory };
+    setDeleteModal({
+      isOpen: true,
+      targetId: item.id || item.name,
+      targetName: item.name
     });
+  };
+
+  // 确认删除：执行实际的清理逻辑
+  const confirmDelete = () => {
+    const id = deleteModal.targetId;
+    if (!id) return;
+
+    // 1. 清理翻译缓存
+    try {
+      localStorage.removeItem(`trans_cache_${id}`);
+    } catch (err) {
+      console.warn("清理翻译缓存失败:", err);
+    }
+
+    // 2. 更新状态移除记录
+    setState(prev => ({
+      ...prev,
+      history: prev.history.filter(h => !(h.id === id || h.name === id))
+    }));
+
+    // 3. 关闭弹窗
+    setDeleteModal({ isOpen: false, targetId: null, targetName: null });
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement> | File) => {
@@ -139,6 +169,36 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen w-full bg-[#fcfcfd] text-slate-900 overflow-hidden font-sans">
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf,.docx,.doc,.txt" className="hidden" />
 
+      {/* 自定义删除确认弹窗 */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteModal({ ...deleteModal, isOpen: false })}></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">确认删除记录？</h3>
+            <p className="text-slate-500 text-sm leading-relaxed mb-8">
+              您确定要从历史记录中移除 <span className="font-bold text-slate-800">“{deleteModal.targetName}”</span> 吗？这将同时清理已保存的翻译缓存。
+            </p>
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+                className="flex-1 px-4 py-3 rounded-2xl bg-slate-50 text-slate-500 text-sm font-bold hover:bg-slate-100 transition-colors"
+              >
+                取消
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-3 rounded-2xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 active:scale-95"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Adaptive Header */}
       <header className="h-16 md:h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-100 px-4 md:px-8 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center space-x-3 md:space-x-4">
@@ -181,11 +241,12 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-hidden relative">
         {state.view === 'upload' ? (
           <div className="h-full flex flex-col lg:flex-row overflow-hidden">
+            {/* Upload Zone */}
             <div className="flex-[1.5] xl:flex-[2] flex flex-col items-center justify-center bg-white px-6 md:px-12 overflow-y-auto custom-scrollbar">
               <div className="w-full max-w-4xl py-10">
                 <div className="mb-14 text-center">
                   <h2 className="font-heading text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-black text-slate-900 leading-[1.1] mb-8 premium-title">
-                    文献深度阅读，<br/><span className="text-blue-600">智慧完美体验。</span>
+                    文献深度阅读，智慧完美体验。
                   </h2>
                   <p className="text-sm md:text-lg text-slate-400 font-medium max-w-xl mx-auto font-translation tracking-wide">
                     支持 PDF 与文本格式。AI 自动解析段落，为您提供极致的双语对照体验。
@@ -212,6 +273,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* History Sidebar */}
             <div className="flex-1 min-w-[320px] max-w-full lg:max-w-[420px] bg-slate-50 border-l border-slate-100 flex flex-col overflow-hidden">
               <div className="p-8 md:p-10 pb-6">
                 <h3 className="text-xl font-black text-slate-800 tracking-tight">最近阅读</h3>
@@ -229,10 +291,11 @@ const App: React.FC = () => {
                       key={item.id || item.name}
                       className="group bg-white p-6 rounded-[32px] border border-slate-100 hover:border-blue-200 transition-all relative shadow-sm hover:shadow-xl hover:shadow-blue-500/5 flex-none"
                     >
+                      {/* Delete Button (Calls handleDeleteHistoryRequest) */}
                       <button 
                         type="button"
-                        onClick={(e) => handleDeleteHistory(e, item.id || item.name)}
-                        className="absolute top-4 right-4 p-2 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
+                        onClick={(e) => handleDeleteHistoryRequest(e, item)}
+                        className="absolute top-4 right-4 p-2 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100 z-10"
                         title="删除记录"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -252,7 +315,7 @@ const App: React.FC = () => {
                             <span className="text-[8px] text-slate-300 font-bold uppercase">Progress</span>
                           </div>
                           <button 
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={() => handleFileUpload(new File([], item.name, { type: item.type }))}
                             className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200"
                           >
                             继续阅读
