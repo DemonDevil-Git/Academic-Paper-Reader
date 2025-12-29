@@ -103,7 +103,7 @@ const Reader: React.FC<ReaderProps> = ({ page, onPageUpdate }) => {
                     <p className="text-slate-400 font-reading text-sm md:text-base mb-5 italic opacity-60 group-hover:opacity-100 transition-opacity leading-relaxed">
                       {s.src}
                     </p>
-                    <p className="font-translation text-xl md:text-2xl text-slate-800 leading-[1.9] font-medium tracking-wide">
+                    <p className="font-translation text-lg md:text-xl text-slate-800 leading-relaxed font-medium tracking-wide text-justify indent-[2em]">
                       {s.tgt}
                     </p>
                   </div>
